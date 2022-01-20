@@ -1,7 +1,6 @@
-from re import L
 import re
-from tabnanny import check
 import numpy as np
+from sklearn.model_selection import StratifiedKFold
 from preprocess import getDL
 from const import *
 from random import randint
@@ -15,11 +14,15 @@ class env():
         self.sampled=np.ones(IMAGE_SIZE)
         self.mask=np.array([1 for i in range(NUM_ACTION)])
         self.buffer=[]
+        self.count=0
         self.current_image
         self.ground_truth
         self.location
         self.reset_image()
         self.check_mask()
+        state=self.get_state()
+
+        return state
         
     def step(self,action):
         move=(ACTION_X[action],ACTION_Y[action])
@@ -28,13 +31,32 @@ class env():
             self.mark_as_sampled()
             self.check_mask()
             self.buffer.append(self.current_image[:][self.location])
+            self.count+=1
 
         else:
             self.location[0]+=move[0]
             self.location[1]+=move[1]
             self.mark_as_sampled()
             self.check_mask()
+            self.buffer.append(self.current_image[:][self.location])
+            self.count+=1
+
+        done=False
+        if(self.count==SAMPLE_SIZE):
+            done=True
+        state=self.get_state()
+        reward=self.get_reward()
+        return state,reward,done
+
     
+    def get_reward(self):
+        #FIXME
+        return 0
+
+    
+    def get_state(self):
+        return [self.current_image[0],self.current_image[1],self.current_image[2],self.sampled]
+
     def reset_image(self):
         #random an initial image
         index=randint(0,self.num_image-1)
