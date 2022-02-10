@@ -17,6 +17,7 @@ def getDL():
         transforms.ToTensor(),
     ])
 
-    dataset = CustomVisionDataset(img_root='./dataset/test',gt_root="./dataset/ground_truth", img_transform=transform, gt_transform=gt_transform)
-    return dataset
+    labeledSet = CustomVisionDataset(img_root='./mvtec_anomaly_detection/bottle/test',gt_root="./mvtec_anomaly_detection/bottle/ground_truth", img_transform=transform, gt_transform=gt_transform)
+    unlabeledSet =  CustomVisionDataset(img_root='./mvtec_anomaly_detection/bottle/test',gt_root="./mvtec_anomaly_detection/bottle/ground_truth", img_transform=transform, gt_transform=gt_transform)
+    return labeledSet,unlabeledSet
 getDL()

@@ -1,3 +1,5 @@
+from json import load
+from this import d
 import torch
 import torchvision
 from torchvision import transforms
@@ -5,7 +7,10 @@ from torch.utils.data import DataLoader,random_split
 from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
-
+from const import *
+import numpy as np
+from queue import Queue
+from preprocess import getDL
 
 class Encoder(nn.Module):
     
@@ -91,3 +96,70 @@ class Decoder(nn.Module):
         # Apply a sigmoid to force the output to be between 0 and 1 (valid pixel values)
         x = torch.sigmoid(x)
         return x
+
+class model():
+    def __init__(self):
+        super().__init__()
+        self.encoder = Encoder(encoded_space_dim=SPACE_DIM)
+        self.decoder = Decoder(encoded_space_dim=SPACE_DIM)
+        self.env,_=getDL()
+        self.lossBuffer=[Queue(BUFFER_SIZE) for i in range(len(list(self.env)))]
+        self.buffer_counter=0
+        ### Define the loss function
+        self.loss_fn = torch.nn.MSELoss()
+
+        params_to_optimize = [
+            {'params': self.encoder.parameters()},
+            {'params': self.decoder.parameters()}
+        ]
+
+        self.optim = torch.optim.Adam(params_to_optimize, lr=AUTOENCODER_LR, weight_decay=1e-05)
+        #optim = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=6e-05)
+        # Move both the encoder and the decoder to the selected device
+        self.encoder=self.encoder.to(DEVICE)
+        self.decoder=self.decoder.to(DEVICE)
+
+
+    def compute_total_loss(self,data):
+        for d in data:
+            d = d.to(DEVICE)
+             # Encode data
+            encoded_data = self.encoder(d[0])
+            # Decode data
+            decoded_data = self.decoder(encoded_data)
+            loss=(decoded_data-d[0])**2
+            total_loss.append(loss,d[1])
+        return total_loss
+            
+
+
+
+    ### Training function
+    def train_epoch(self,lossbuffer,data,):
+        # Set train mode for both the encoder and the decoder
+        self.encoder.train()
+        self.train_loss = []
+        dataloader=DataLoader(lossbuffer,BATCH_SIZE,shuffle=True)
+        # Iterate the dataloader (we do not need the label values, this is unsupervised learning)
+        for image_batch, _ in dataloader: # with "_" we just ignore the labels (the second element of the dataloader tuple)
+            # Move tensor to the proper device
+            image_batch = image_batch.to(DEVICE)
+            # Encode data
+            encoded_data = self.encoder(image_batch)
+            # Decode data
+            decoded_data = self.decoder(encoded_data)
+            # Evaluate loss
+            loss = self.loss_fn(decoded_data, image_batch)
+            # Backward pass
+            self.optim.zero_grad()
+            loss.backward()
+            self.optim.step()
+            # Print batch loss
+            self.compute_total_loss(data)
+            print('\t partial train loss (single batch): %f' % (loss.data))
+            self.train_loss.append(loss.detach().cpu().numpy())
+            
+        return np.mean(self.train_loss)
+
+### Prepare patches
+

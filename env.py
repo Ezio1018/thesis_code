@@ -6,11 +6,12 @@ from const import *
 from random import randint
 
 
+
 class env():
     def initiate(self):
-        self.env=getDL()
+        self.env,self.env_unlabeled=getDL()
         self.indics=len(self.env)
-        self.num_image=len(list(self,env))
+        self.num_image=len(list(self.env))
         self.sampled=np.ones(IMAGE_SIZE)
         self.mask=np.array([1 for i in range(NUM_ACTION)])
         self.buffer=[]
