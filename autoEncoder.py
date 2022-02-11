@@ -13,10 +13,10 @@ from queue import Queue
 from preprocess import getDL
 
 class Encoder(nn.Module):
-    
+
     def __init__(self, encoded_space_dim):
         super().__init__()
-        
+
         ### Convolutional section
         self.encoder_cnn = nn.Sequential(
             # First convolutional layer
@@ -32,7 +32,7 @@ class Encoder(nn.Module):
             #nn.BatchNorm2d(32),
             nn.ReLU(True)
         )
-        
+
         ### Flatten layer
         self.flatten = nn.Flatten(start_dim=1)
 
@@ -44,7 +44,7 @@ class Encoder(nn.Module):
             # Second linear layer
             nn.Linear(128, encoded_space_dim)
         )
-        
+
     def forward(self, x):
         # Apply convolutions
         x = self.encoder_cnn(x)
@@ -55,7 +55,7 @@ class Encoder(nn.Module):
         return x
 
 class Decoder(nn.Module):
-    
+
     def __init__(self, encoded_space_dim):
         super().__init__()
 
@@ -85,7 +85,7 @@ class Decoder(nn.Module):
             # Third transposed convolution
             nn.ConvTranspose2d(8, 1, 3, stride=2, padding=1, output_padding=1)
         )
-        
+
     def forward(self, x):
         # Apply linear layers
         x = self.decoder_lin(x)
@@ -107,6 +107,7 @@ class model():
         self.buffer_counter=0
         ### Define the loss function
         self.loss_fn = torch.nn.MSELoss()
+        self.temp=[]
 
         params_to_optimize = [
             {'params': self.encoder.parameters()},
@@ -121,25 +122,26 @@ class model():
 
 
     def compute_total_loss(self,data):
-        for d in data:
-            d = d.to(DEVICE)
+        temp=[]
+        for i in range(len(data)):
+            d = data[i].to(DEVICE)
              # Encode data
             encoded_data = self.encoder(d[0])
             # Decode data
             decoded_data = self.decoder(encoded_data)
             loss=(decoded_data-d[0])**2
-            total_loss.append(loss,d[1])
-        return total_loss
-            
+            temp.append(loss)
+        self.temp.append(temp)
+
 
 
 
     ### Training function
-    def train_epoch(self,lossbuffer,data,):
+    def train_epoch(self,patchBuffer,data,):
         # Set train mode for both the encoder and the decoder
         self.encoder.train()
         self.train_loss = []
-        dataloader=DataLoader(lossbuffer,BATCH_SIZE,shuffle=True)
+        dataloader=DataLoader(patchBuffer,BATCH_SIZE,shuffle=True)
         # Iterate the dataloader (we do not need the label values, this is unsupervised learning)
         for image_batch, _ in dataloader: # with "_" we just ignore the labels (the second element of the dataloader tuple)
             # Move tensor to the proper device
@@ -158,8 +160,11 @@ class model():
             self.compute_total_loss(data)
             print('\t partial train loss (single batch): %f' % (loss.data))
             self.train_loss.append(loss.detach().cpu().numpy())
-            
-        return np.mean(self.train_loss)
+
+        temp=np.array(self.temp).T
+        for i in range(len(temp)):
+            self.lossBuffer[i].put(temp[i])
+        self.temp=[]
 
 ### Prepare patches
 
